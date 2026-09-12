@@ -2545,4 +2545,8 @@ async function start() {
   });
 }
 
-start();
+export default app;
+
+if (!process.env.VERCEL) {
+  start();
+}

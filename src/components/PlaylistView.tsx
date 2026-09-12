@@ -114,8 +114,8 @@ export const PlaylistView: React.FC = () => {
     if (navigator.share) {
       navigator
         .share({
-          title: `${title} - Aura Music`,
-          text: `Dengarkan playlist "${title}" di Aura Music`,
+          title: `${title} - Shawnmusic`,
+          text: `Dengarkan playlist "${title}" di Shawnmusic`,
           url: window.location.href,
         })
         .catch(() => {});
