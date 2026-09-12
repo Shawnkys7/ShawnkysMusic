@@ -155,49 +155,18 @@ app.get('/api/search', async (req, res) => {
         return res.json(videos);
       }
 
-      // Default: 'song' - filter out spam compilation videos, mixes, channels like JUGO MUZIK
+      // Default: 'song' - return all legitimate music items with clean metadata
       const filtered = ytRes.filter((item: any) => {
         const videoId = item.videoId || (item.type === 'SONG' ? item.id : null);
         if (!videoId) return false;
 
-        if (item.type && item.type !== 'SONG') {
-          return false;
-        }
-
         const title = (item.name || item.title || '').toLowerCase().trim();
         const artist = (typeof item.artist === 'string' ? item.artist : item.artist?.name || item.artists || '').toLowerCase().trim();
-        const album = (typeof item.album === 'string' ? item.album : item.album?.name || '').toLowerCase().trim();
-        const full = `${title} ${artist} ${album}`;
+        const full = `${title} ${artist}`;
 
-        // Reject junk compilation patterns, mix channels, and specifically JUGO MUZIK
-        const isJunk =
-          /jugo muzik/i.test(full) ||
-          /terbaik tahun/i.test(full) ||
-          /hits spotify/i.test(full) ||
-          /top spotify/i.test(full) ||
-          /indmusik/i.test(full) ||
-          /lagu pop indonesia terbaru/i.test(full) ||
-          /teh hijau/i.test(full) ||
-          /aluna music/i.test(full) ||
-          /redlist/i.test(full) ||
-          /lyrixora/i.test(full) ||
-          /spotify top hits/i.test(full) ||
-          /top hits playlist/i.test(full) ||
-          /kompilasi/i.test(full) ||
-          /kumpulan/i.test(full) ||
-          /full album/i.test(full) ||
-          /1 jam/i.test(full) ||
-          /2 jam/i.test(full) ||
-          /3 jam/i.test(full) ||
-          /paling enak didengar/i.test(full) ||
-          /pengantar tidur/i.test(full) ||
-          title === 'lag...' ||
-          title === 'lagu...';
-
-        if (isJunk) return false;
-
-        const dur = typeof item.duration === 'number' ? item.duration : 0;
-        if (dur > 540) return false;
+        // Filter out obvious multi-hour spam compilations
+        if (/3 jam|4 jam|5 jam/i.test(full)) return false;
+        if (title === 'lag...' || title === 'lagu...') return false;
 
         return true;
       });
@@ -208,8 +177,8 @@ app.get('/api/search', async (req, res) => {
         if (bestThumb && bestThumb.includes('googleusercontent.com')) {
           bestThumb = bestThumb.replace(/=w\d+-h\d+.*$/, '=w600-h600-l90-rj');
         }
-        if (!bestThumb && item.videoId) {
-          bestThumb = `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`;
+        if (!bestThumb && (item.videoId || item.id)) {
+          bestThumb = `https://i.ytimg.com/vi/${item.videoId || item.id}/hqdefault.jpg`;
         }
         return {
           ...item,
@@ -249,6 +218,32 @@ app.get('/api/search', async (req, res) => {
     res.json([]);
   } catch (err: any) {
     console.error('API /api/search error:', err);
+    res.json([]);
+  }
+});
+
+// Search suggestions endpoint (Google/YouTube autocomplete with fallback)
+app.get('/api/suggestions', async (req, res) => {
+  const query = (req.query.q as string || '').trim();
+  if (!query) {
+    return res.json([]);
+  }
+  try {
+    const url = `https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        const cleaned = data[1]
+          .filter((item: any) => typeof item === 'string' && item.trim().length > 0)
+          .slice(0, 8);
+        return res.json(cleaned);
+      }
+    }
+    res.json([]);
+  } catch {
     res.json([]);
   }
 });
@@ -358,6 +353,565 @@ app.get('/api/home-songs', async (req, res) => {
 app.get('/api/home-sections', async (req, res) => {
   try {
     const homeSectionsData = {
+      pilihan: [
+        {
+          id: 'yt_eVli-tstM5E',
+          videoId: 'eVli-tstM5E',
+          title: 'Espresso',
+          artist: 'Sabrina Carpenter',
+          album: 'Short n\' Sweet',
+          duration: 175,
+          image: 'https://i.ytimg.com/vi/eVli-tstM5E/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_7qVz_vWwT_Y',
+          videoId: '7qVz_vWwT_Y',
+          title: 'Bollywood Dj Non Stop',
+          artist: 'DJ NYK',
+          album: 'Bollywood Remix',
+          duration: 320,
+          image: 'https://i.ytimg.com/vi/7qVz_vWwT_Y/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_5m0O2yHkW64',
+          videoId: '5m0O2yHkW64',
+          title: 'Biri Marung',
+          artist: 'Dayak Mix',
+          album: 'Tradisional',
+          duration: 215,
+          image: 'https://i.ytimg.com/vi/5m0O2yHkW64/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_fCZVL_8D048',
+          videoId: 'fCZVL_8D048',
+          title: 'Jerusalema',
+          artist: 'Master KG ft. Nomcebo',
+          album: 'Jerusalema',
+          duration: 330,
+          image: 'https://i.ytimg.com/vi/fCZVL_8D048/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_1k8craCGpgs',
+          videoId: '1k8craCGpgs',
+          title: 'Journey (2024 Remaster)',
+          artist: 'Journey',
+          album: 'Escape',
+          duration: 250,
+          image: 'https://i.ytimg.com/vi/1k8craCGpgs/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_kffacxfA7G4',
+          videoId: 'kffacxfA7G4',
+          title: 'Party Mashup - DJ Praveen',
+          artist: 'DJ Praveen',
+          album: 'Party Hits',
+          duration: 290,
+          image: 'https://i.ytimg.com/vi/kffacxfA7G4/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_9V2g0_p8r0A',
+          videoId: '9V2g0_p8r0A',
+          title: 'Sthandwa Sam',
+          artist: 'Boohle',
+          album: 'Amapiano',
+          duration: 310,
+          image: 'https://i.ytimg.com/vi/9V2g0_p8r0A/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_TUVcZfQe-Kw',
+          videoId: 'TUVcZfQe-Kw',
+          title: 'Levitating',
+          artist: 'Dua Lipa',
+          album: 'Future Nostalgia',
+          duration: 203,
+          image: 'https://i.ytimg.com/vi/TUVcZfQe-Kw/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_Uq9gPaIzbe8',
+          videoId: 'Uq9gPaIzbe8',
+          title: 'Unholy',
+          artist: 'Sam Smith, Kim Petras',
+          album: 'Gloria',
+          duration: 156,
+          image: 'https://i.ytimg.com/vi/Uq9gPaIzbe8/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_kPa7bsKwL-c',
+          videoId: 'kPa7bsKwL-c',
+          title: 'Die With A Smile',
+          artist: 'Lady Gaga & Bruno Mars',
+          album: 'Single',
+          duration: 251,
+          image: 'https://i.ytimg.com/vi/kPa7bsKwL-c/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_d5gf9dXbPi0',
+          videoId: 'd5gf9dXbPi0',
+          title: 'Birds of a Feather',
+          artist: 'Billie Eilish',
+          album: 'HIT ME HARD AND SOFT',
+          duration: 193,
+          image: 'https://i.ytimg.com/vi/d5gf9dXbPi0/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_toea6L580kM',
+          videoId: 'toea6L580kM',
+          title: 'Greedy',
+          artist: 'Tate McRae',
+          album: 'THINK LATER',
+          duration: 131,
+          image: 'https://i.ytimg.com/vi/toea6L580kM/hqdefault.jpg',
+          source: 'youtube'
+        }
+      ],
+      pamungkasSection: {
+        artist: {
+          name: 'Pamungkas',
+          artistId: 'UC_pamungkas_official',
+          image: 'https://yt3.googleusercontent.com/9lQ6Q_1M4uC7wQyH4xR1rQZ9r6tN_8a3k0e9h7-J-g=w300-h300-l90-rj'
+        },
+        tracks: [
+          {
+            id: 'yt_6b_1g_k2n_k',
+            videoId: '6b_1g_k2n_k',
+            title: 'Adam',
+            artist: 'Pamungkas',
+            album: 'Hardcore Romance',
+            duration: 284,
+            image: 'https://i.ytimg.com/vi/6b_1g_k2n_k/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_4bA_J5cM9_0',
+            videoId: '4bA_J5cM9_0',
+            title: 'To the Bone',
+            artist: 'Pamungkas',
+            album: 'Flying Solo',
+            duration: 345,
+            image: 'https://i.ytimg.com/vi/4bA_J5cM9_0/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_y83x7MgzWOA',
+            videoId: 'y83x7MgzWOA',
+            title: 'Hanya Kali Kita Ada',
+            artist: 'Pamungkas',
+            album: 'Hardcore Romance',
+            duration: 280,
+            image: 'https://i.ytimg.com/vi/y83x7MgzWOA/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_j2V4r5C6g7A',
+            videoId: 'j2V4r5C6g7A',
+            title: 'Closure',
+            artist: 'Pamungkas',
+            album: 'Solipsism 0.2',
+            duration: 232,
+            image: 'https://i.ytimg.com/vi/j2V4r5C6g7A/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_vXb7e_4q9w8',
+            videoId: 'vXb7e_4q9w8',
+            title: 'Monolog',
+            artist: 'Pamungkas',
+            album: 'Walk The Talk',
+            duration: 220,
+            image: 'https://i.ytimg.com/vi/vXb7e_4q9w8/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_p0m2a8_7w6x',
+            videoId: 'p0m2a8_7w6x',
+            title: 'Flying Solo',
+            artist: 'Pamungkas',
+            album: 'Flying Solo',
+            duration: 215,
+            image: 'https://i.ytimg.com/vi/p0m2a8_7w6x/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_y5u3n7_0z2w',
+            videoId: 'y5u3n7_0z2w',
+            title: 'One Only',
+            artist: 'Pamungkas',
+            album: 'Walk The Talk',
+            duration: 255,
+            image: 'https://i.ytimg.com/vi/y5u3n7_0z2w/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_e8n9b4_2v7y',
+            videoId: 'e8n9b4_2v7y',
+            title: 'I Love You But I\'m Letting Go',
+            artist: 'Pamungkas',
+            album: 'Walk The Talk',
+            duration: 222,
+            image: 'https://i.ytimg.com/vi/e8n9b4_2v7y/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_q8z7x6_3c2v',
+            videoId: 'q8z7x6_3c2v',
+            title: 'Kenangan Manis',
+            artist: 'Pamungkas',
+            album: 'Walk The Talk',
+            duration: 208,
+            image: 'https://i.ytimg.com/vi/q8z7x6_3c2v/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_l8k7j6_5h4g',
+            videoId: 'l8k7j6_5h4g',
+            title: 'Be My Friend',
+            artist: 'Pamungkas',
+            album: 'Solipsism',
+            duration: 195,
+            image: 'https://i.ytimg.com/vi/l8k7j6_5h4g/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_m9n8b7_6v5c',
+            videoId: 'm9n8b7_6v5c',
+            title: 'Live Forever',
+            artist: 'Pamungkas',
+            album: 'Solipsism',
+            duration: 242,
+            image: 'https://i.ytimg.com/vi/m9n8b7_6v5c/hqdefault.jpg',
+            source: 'youtube'
+          },
+          {
+            id: 'yt_x7c6v5_4b3n',
+            videoId: 'x7c6v5_4b3n',
+            title: 'Sorry',
+            artist: 'Pamungkas',
+            album: 'Walk The Talk',
+            duration: 210,
+            image: 'https://i.ytimg.com/vi/x7c6v5_4b3n/hqdefault.jpg',
+            source: 'youtube'
+          }
+        ]
+      },
+      top50Indonesia: [
+        {
+          id: 'yt_zen_med',
+          videoId: '1ZYbU87028U',
+          title: 'Zen Meditation Music',
+          artist: 'Zen Relaxing',
+          album: 'Peaceful Mind',
+          duration: 300,
+          image: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_infinity_jy',
+          videoId: 'pw-9qB3V7rA',
+          title: 'Infinity',
+          artist: 'Jaymes Young',
+          album: 'Feel Something',
+          duration: 237,
+          image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_kick_back',
+          videoId: 'M2cckDmNLMI',
+          title: 'KICK BACK',
+          artist: 'Kenshi Yonezu',
+          album: 'Chainsaw Man',
+          duration: 193,
+          image: 'https://i.ytimg.com/vi/M2cckDmNLMI/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_lABZ_-uhC0E',
+          videoId: 'lABZ_-uhC0E',
+          title: 'Gala bunga matahari',
+          artist: 'Sal Priadi',
+          album: 'MARKERS AND SUCH',
+          duration: 210,
+          image: 'https://i.ytimg.com/vi/lABZ_-uhC0E/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_z-XHpftdXEE',
+          videoId: 's_K8_f9l4kI',
+          title: 'Satu Bulan',
+          artist: 'Bernadya',
+          album: 'Sialnya, Hidup Harus Tetap Berjalan',
+          duration: 201,
+          image: 'https://i.ytimg.com/vi/s_K8_f9l4kI/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_xTQvdE1oOaw',
+          videoId: 'xTQvdE1oOaw',
+          title: 'Rumah Ke Rumah',
+          artist: 'Hindia',
+          album: 'Menari Dengan Bayangan',
+          duration: 278,
+          image: 'https://i.ytimg.com/vi/xTQvdE1oOaw/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_masing_masing',
+          videoId: 's_K8_f9l4kI',
+          title: 'Masing-Masing',
+          artist: 'Ernie Zakri, Ade Govinda',
+          album: 'Aura',
+          duration: 236,
+          image: 'https://i.ytimg.com/vi/s_K8_f9l4kI/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_sial_mahalini',
+          videoId: '1qP3p1N5wF8',
+          title: 'Sial',
+          artist: 'Mahalini',
+          album: 'FABULA',
+          duration: 243,
+          image: 'https://i.ytimg.com/vi/1qP3p1N5wF8/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_komang_raim',
+          videoId: 'b5mN0_3g2vQ',
+          title: 'Komang',
+          artist: 'Raim Laode',
+          album: 'Single',
+          duration: 222,
+          image: 'https://i.ytimg.com/vi/b5mN0_3g2vQ/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_jiwa_yang_bersedih',
+          videoId: '1qP3p1N5wF8',
+          title: 'Jiwa Yang Bersedih',
+          artist: 'Ghea Indrawari',
+          album: 'Single',
+          duration: 278,
+          image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        }
+      ],
+      surrenderToTheBeat: [
+        {
+          id: 'yt_jj_gaspol',
+          videoId: '9ZR4G6CqqQA',
+          title: 'Jedag Jedug Sampai Pagi',
+          artist: 'JJ GASPOL',
+          album: 'DJ Jedag Jedug',
+          duration: 214,
+          image: 'https://images.unsplash.com/photo-1571266028243-e4733b0f0bb1?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_jj_buncit',
+          videoId: '9ZR4G6CqqQA',
+          title: 'Jedag Jedug Full Bass',
+          artist: 'Goyang Buncit',
+          album: 'Bass Boosted',
+          duration: 205,
+          image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_jj_tiktok',
+          videoId: 'k3-FWnkfi9U',
+          title: 'Jedag Jedug TikTok Viral',
+          artist: 'Evolusi Music',
+          album: 'TikTok DJ',
+          duration: 198,
+          image: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_dj_malam_pagi',
+          videoId: '9ZR4G6CqqQA',
+          title: 'DJ Malam Pagi',
+          artist: 'Saixse, DJ Desa',
+          album: 'Remix Viral',
+          duration: 215,
+          image: 'https://i.ytimg.com/vi/9ZR4G6CqqQA/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_dj_cikini',
+          videoId: 'UF4j7r2jV50',
+          title: 'DJ Cikini Ke Gondangdia',
+          artist: 'Duo Anggun Remix',
+          album: 'Koplo Mix',
+          duration: 190,
+          image: 'https://i.ytimg.com/vi/UF4j7r2jV50/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_dj_santuy',
+          videoId: 'tC9TKJ0A4-s',
+          title: 'DJ Santuy Slow Bass',
+          artist: 'DJ Opus',
+          album: 'Santuy Mengkane',
+          duration: 240,
+          image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        }
+      ],
+      funThrowbacks: [
+        {
+          id: 'yt_letto_ruang',
+          videoId: '5QMsYmJYUlQ',
+          title: 'Ruang Rindu',
+          artist: 'Letto',
+          album: 'Truth, Cry, and Lie',
+          duration: 211,
+          image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_dian_sendiri',
+          videoId: '5QMsYmJYUlQ',
+          title: 'Tak Ingin Sendiri',
+          artist: 'Dian Piesesha',
+          album: 'Nostalgia Emas',
+          duration: 260,
+          image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_so7_dan',
+          videoId: '5QMsYmJYUlQ',
+          title: 'Dan...',
+          artist: 'Sheila On 7',
+          album: 'Sheila On 7',
+          duration: 288,
+          image: 'https://i.ytimg.com/vi/5QMsYmJYUlQ/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_dewa_kangen',
+          videoId: 'xTQvdE1oOaw',
+          title: 'Kangen',
+          artist: 'Dewa 19',
+          album: '19',
+          duration: 310,
+          image: 'https://i.ytimg.com/vi/xTQvdE1oOaw/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_so7_sephia',
+          videoId: '5QMsYmJYUlQ',
+          title: 'Sephia',
+          artist: 'Sheila On 7',
+          album: 'Kisah Klasik Untuk Masa Depan',
+          duration: 295,
+          image: 'https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=400&auto=format&fit=crop&q=80',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_peterpan_jejakmu',
+          videoId: 'Lw17JMX-ILk',
+          title: 'Menghapus Jejakmu',
+          artist: 'Peterpan',
+          album: 'Hari Yang Cerah',
+          duration: 185,
+          image: 'https://i.ytimg.com/vi/Lw17JMX-ILk/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_iwan_kemesraan',
+          videoId: 'cVf4krniHoI',
+          title: 'Kemesraan',
+          artist: 'Iwan Fals',
+          album: 'Kemesraan',
+          duration: 302,
+          image: 'https://i.ytimg.com/vi/cVf4krniHoI/hqdefault.jpg',
+          source: 'youtube'
+        }
+      ],
+      moreLikeChill: [
+        {
+          id: 'yt_lounge_bar',
+          videoId: 'bZgWdInM3xK',
+          title: 'Lounge Bar Chillout',
+          artist: 'Palm Tree Lounge',
+          album: 'Chill Waves',
+          duration: 210,
+          image: 'https://i.ytimg.com/vi/bZgWdInM3xK/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_relax_guitar',
+          videoId: 'kO1gvHp52l0',
+          title: 'Relaxing Guitar Music',
+          artist: 'Nature Sounds',
+          album: 'Acoustic Chill',
+          duration: 240,
+          image: 'https://i.ytimg.com/vi/kO1gvHp52l0/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_night_soothing',
+          videoId: 'ryOGtcqThn-',
+          title: 'Night Soothing',
+          artist: 'Power Sleep',
+          album: 'Sleep Well',
+          duration: 260,
+          image: 'https://i.ytimg.com/vi/ryOGtcqThn-/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_morning_coffee',
+          videoId: '_eDXK2OSYog',
+          title: 'Sunday Morning Coffee',
+          artist: 'Chill Sunset',
+          album: 'Coffee Shop Vibes',
+          duration: 195,
+          image: 'https://i.ytimg.com/vi/_eDXK2OSYog/hqdefault.jpg',
+          source: 'youtube'
+        },
+        {
+          id: 'yt_lofi_study',
+          videoId: 'AOuv6LngN-J',
+          title: 'Lofi Study Session',
+          artist: 'ChillHop Music',
+          album: 'Lofi Beats',
+          duration: 185,
+          image: 'https://i.ytimg.com/vi/AOuv6LngN-J/hqdefault.jpg',
+          source: 'youtube'
+        }
+      ],
+      suasanaHatiDanGenre: [
+        { name: 'Chill', color: '#2B4C5F', gradient: 'from-cyan-900 to-slate-900' },
+        { name: 'Commute', color: '#3A3F58', gradient: 'from-indigo-950 to-neutral-900' },
+        { name: 'Energy', color: '#6E3A2F', gradient: 'from-orange-950 to-neutral-900' },
+        { name: 'Focus', color: '#264D3B', gradient: 'from-emerald-950 to-neutral-900' },
+        { name: 'Gaming', color: '#4A2A68', gradient: 'from-purple-950 to-neutral-900' },
+        { name: 'Party', color: '#682A4A', gradient: 'from-pink-950 to-neutral-900' },
+        { name: 'Romance', color: '#632B3C', gradient: 'from-rose-950 to-neutral-900' },
+        { name: 'Sleep', color: '#1E293B', gradient: 'from-slate-950 to-neutral-900' },
+        { name: 'Workout', color: '#5B3722', gradient: 'from-amber-950 to-neutral-900' },
+        { name: 'Indie', color: '#334155', gradient: 'from-slate-900 to-neutral-950' },
+        { name: 'Pop', color: '#502D4E', gradient: 'from-fuchsia-950 to-neutral-900' },
+        { name: 'Rock', color: '#452626', gradient: 'from-red-950 to-neutral-900' },
+        { name: 'R&B', color: '#312E81', gradient: 'from-blue-950 to-neutral-900' },
+        { name: 'Dangdut', color: '#4D3823', gradient: 'from-yellow-950 to-neutral-900' },
+        { name: 'Jazz', color: '#2E3B4E', gradient: 'from-blue-950 to-slate-900' },
+        { name: 'Klasik', color: '#2D3748', gradient: 'from-gray-900 to-neutral-950' },
+        { name: 'Akustik', color: '#3E342B', gradient: 'from-stone-900 to-neutral-950' },
+        { name: 'Galau', color: '#2B2F44', gradient: 'from-slate-900 to-zinc-950' }
+      ],
       communityPlaylists: [
         {
           id: 'comm_1',
@@ -1105,6 +1659,163 @@ app.get('/api/home-sections', async (req, res) => {
   } catch (err) {
     console.error('Error serving /api/home-sections:', err);
     res.status(500).json({ error: 'Failed to load home sections' });
+  }
+});
+
+// Dedicated Genre & Mood API endpoint (fetches real songs from risyadh / YouTube scraper)
+const genreDataCache: Record<string, { data: any; timestamp: number }> = {};
+
+app.get('/api/genre', async (req, res) => {
+  const genre = ((req.query.genre || req.query.name || 'Chill') as string).trim();
+  const cacheKey = genre.toLowerCase();
+  const now = Date.now();
+
+  if (genreDataCache[cacheKey] && now - genreDataCache[cacheKey].timestamp < 600000) {
+    return res.json(genreDataCache[cacheKey].data);
+  }
+
+  try {
+    const feelingQuery = `feeling ${genre} music`;
+    const hitsQuery = `${genre} hits songs`;
+    const popQuery = `best of ${genre} playlist`;
+
+    const fetchTracks = async (q: string) => {
+      const ytUrl = `https://risyadh-musik.vercel.app/api/search?q=${encodeURIComponent(q)}&type=song`;
+      const ytRes = await fetch(ytUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+
+      if (!Array.isArray(ytRes)) return [];
+      return ytRes
+        .filter((item: any) => item.videoId || (item.type === 'SONG' && item.id))
+        .map((item: any) => {
+          const vId = item.videoId || item.id;
+          let bestThumb = item.thumbnails?.[item.thumbnails.length - 1]?.url || item.thumbnail;
+          if (bestThumb && bestThumb.includes('googleusercontent.com')) {
+            bestThumb = bestThumb.replace(/=w\d+-h\d+.*$/, '=w600-h600-l90-rj');
+          }
+          if (!bestThumb) {
+            bestThumb = `https://i.ytimg.com/vi/${vId}/hqdefault.jpg`;
+          }
+          return {
+            id: `yt_${vId}`,
+            videoId: vId,
+            title: (item.name || item.title || '').trim(),
+            name: (item.name || item.title || '').trim(),
+            artist: typeof item.artist === 'string' ? item.artist : item.artist?.name || item.artists || 'Artis',
+            album: item.album?.name || `${genre} Collection`,
+            duration: typeof item.duration === 'number' ? item.duration : 210,
+            image: bestThumb,
+            source: 'youtube'
+          };
+        });
+    };
+
+    const [feelingTracks, hitTracks, moreTracks] = await Promise.all([
+      fetchTracks(feelingQuery),
+      fetchTracks(hitsQuery),
+      fetchTracks(popQuery),
+    ]);
+
+    const result = {
+      genre,
+      feelingTitle: `Feeling ${genre.toLowerCase()}`,
+      hitsTitle: `${genre} hits`,
+      feelingTracks: feelingTracks.length > 0 ? feelingTracks.slice(0, 15) : [],
+      hitTracks: hitTracks.length > 0 ? hitTracks.slice(0, 15) : [],
+      moreTracks: moreTracks.length > 0 ? moreTracks.slice(0, 15) : [],
+    };
+
+    genreDataCache[cacheKey] = { data: result, timestamp: now };
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /api/genre:', err);
+    res.status(500).json({ error: 'Failed to fetch genre data' });
+  }
+});
+
+// Community / Full Playlist Songs Cache
+const communityPlaylistSongsCache: Record<string, { data: any[]; timestamp: number }> = {};
+
+// Endpoint to fetch up to 100 authentic songs for From the community / any playlist
+app.get('/api/community-playlist-songs', async (req, res) => {
+  const id = (req.query.id as string || '').trim();
+  const title = (req.query.title as string || '').trim();
+  const cacheKey = `${id}_${title}`.toLowerCase();
+  const now = Date.now();
+
+  if (communityPlaylistSongsCache[cacheKey] && now - communityPlaylistSongsCache[cacheKey].timestamp < 600000) {
+    return res.json(communityPlaylistSongsCache[cacheKey].data);
+  }
+
+  try {
+    let searchQueries = ['lagu indonesia populer', 'pop indonesia terbaik', 'lagu mellow indonesia', 'lagu galau terpopuler'];
+    if (title.toLowerCase().includes('chill') || id === 'comm_1') {
+      searchQueries = ['chill songs spotify', 'chill pop indonesia', 'indie chill indonesia', 'acoustic chill', 'lagu santai indonesia'];
+    } else if (title.toLowerCase().includes('close') || id === 'comm_2') {
+      searchQueries = ['pop hits indonesia', 'lagu romantis indonesia', 'lagu galau indonesia', 'populer indonesia', 'lagu viral tiktok indonesia'];
+    } else if (title.toLowerCase().includes('indie') || title.toLowerCase().includes('senja') || id === 'comm_3') {
+      searchQueries = ['indie indonesia', 'lagu senja indonesia', 'hindia sal priadi nadin amizah', 'indie pop indonesia', 'lagu sore senja'];
+    } else if (title) {
+      searchQueries = [title, `${title} lagu`, 'top indonesia songs', 'lagu pop indonesia'];
+    }
+
+    const allSongs: any[] = [];
+    const seenIds = new Set<string>();
+
+    for (const query of searchQueries) {
+      if (allSongs.length >= 100) break;
+      const ytUrl = `https://risyadh-musik.vercel.app/api/search?q=${encodeURIComponent(query)}&type=song`;
+      const ytRes = await fetch(ytUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      }).then(r => (r.ok ? r.json() : [])).catch(() => []);
+
+      if (Array.isArray(ytRes)) {
+        for (const item of ytRes) {
+          const videoId = item.videoId || (item.type === 'SONG' ? item.id : null);
+          if (!videoId || seenIds.has(videoId)) continue;
+
+          const t = (item.name || item.title || '').trim();
+          const a = typeof item.artist === 'string' ? item.artist : item.artist?.name || item.artists || 'Artis';
+          const dur = typeof item.duration === 'number' ? item.duration : 210;
+          if (dur > 540) continue;
+
+          seenIds.add(videoId);
+          let bestThumb = item.thumbnails?.[item.thumbnails.length - 1]?.url || item.thumbnail;
+          if (bestThumb && bestThumb.includes('googleusercontent.com')) {
+            bestThumb = bestThumb.replace(/=w\d+-h\d+.*$/, '=w600-h600-l90-rj');
+          }
+          if (!bestThumb) {
+            bestThumb = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+          }
+
+          allSongs.push({
+            id: `yt_${videoId}`,
+            videoId,
+            title: t,
+            name: t,
+            artist: a,
+            artists: a,
+            album: item.album?.name || title || 'Playlist Komunitas',
+            duration: dur,
+            image: bestThumb,
+            source: 'youtube',
+          });
+
+          if (allSongs.length >= 100) break;
+        }
+      }
+    }
+
+    if (allSongs.length > 0) {
+      communityPlaylistSongsCache[cacheKey] = { data: allSongs, timestamp: now };
+      return res.json(allSongs);
+    }
+
+    return res.json([]);
+  } catch (err) {
+    console.error('Error fetching community playlist songs:', err);
+    res.json([]);
   }
 });
 

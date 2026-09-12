@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, Flame, Library } from 'lucide-react';
+import { Home, Search, Flame, Library, User } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { ViewMode } from '../types';
 
@@ -11,6 +11,7 @@ export const BottomNav: React.FC = () => {
     { name: 'Mencari', view: 'search', icon: Search },
     { name: 'Top 50', view: 'top', icon: Flame },
     { name: 'Pustaka', view: 'library', icon: Library },
+    { name: 'Dev', view: 'developer', icon: User },
   ];
 
   return (
@@ -18,7 +19,7 @@ export const BottomNav: React.FC = () => {
       id="bottom-navigation-bar"
       className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A0C]/90 backdrop-blur-xl border-t border-white/5 pb-safe select-none pointer-events-auto"
     >
-      <div className="flex justify-around items-center h-16 px-3 max-w-md mx-auto">
+      <div className="flex justify-around items-center h-16 px-2 max-w-md mx-auto">
         {tabs.map((tab) => {
           const isActive = currentView === tab.view;
           const Icon = tab.icon;
@@ -36,7 +37,7 @@ export const BottomNav: React.FC = () => {
               }`}
             >
               <div
-                className={`px-4 py-1 rounded-full transition-all duration-200 ${
+                className={`px-3 sm:px-4 py-1 rounded-full transition-all duration-200 ${
                   isActive ? 'bg-white text-black shadow-sm' : 'bg-transparent text-white/50'
                 }`}
               >

@@ -12,7 +12,11 @@ import {
   Flame,
   Check,
   Loader2,
+  Share2,
+  Sparkles,
+  TrendingUp,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { useMusic } from '../context/MusicContext';
 import { Song } from '../types';
 
@@ -75,6 +79,19 @@ export const TopIndonesiaView: React.FC = () => {
     }
   };
 
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'Top 50 Indonesia - Tangga Lagu Terpopuler',
+        text: 'Dengarkan 50 lagu terpopuler di Indonesia minggu ini',
+        url: window.location.href,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(window.location.href);
+      showToast('Tautan bagikan disalin ke papan klip');
+    }
+  };
+
   const formatDuration = (secs: number) => {
     if (!secs || isNaN(secs)) return '3:30';
     const m = Math.floor(secs / 60);
@@ -82,7 +99,10 @@ export const TopIndonesiaView: React.FC = () => {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const firstCover =
+  const isTopPlaying =
+    isPlaying && topSongs.some((s) => s.videoId === currentSong?.videoId || s.id === currentSong?.id);
+
+  const bannerCover =
     topSongs[0]?.image ||
     'https://i.ytimg.com/vi/NE41kVB0swQ/hqdefault.jpg';
 
@@ -96,61 +116,110 @@ export const TopIndonesiaView: React.FC = () => {
         </div>
       )}
 
-      {/* Top Header with Back button */}
-      <div className="sticky top-0 z-30 flex items-center justify-between p-4 bg-[#0A0A0C]/80 backdrop-blur-xl border-b border-white/5">
-        <button
-          onClick={() => setCurrentView('home')}
-          className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-          title="Kembali"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <span className="text-sm font-bold tracking-tight">Tangga Lagu</span>
-        <div className="w-10" />
+      {/* 1. Immersive Hero Banner matching ArtistView Style */}
+      <div className="relative w-full h-[370px] sm:h-[430px] overflow-hidden bg-neutral-950">
+        <img
+          src={bannerCover}
+          alt="Top 50 Indonesia"
+          className="w-full h-full object-cover object-center filter saturate-125"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Soft Dark Vignette & Bottom Gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0C] via-[#0A0A0C]/55 to-black/45" />
+
+        {/* Floating Top Navigation */}
+        <div className="absolute top-4 left-0 right-0 px-4 sm:px-6 flex items-center justify-between z-20">
+          <button
+            onClick={() => setCurrentView('home')}
+            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-lg active:scale-95"
+            title="Kembali"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleShare}
+              className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-lg active:scale-95"
+              title="Bagikan Tangga Lagu"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Hero Bottom Info (Title + Badges + Action Buttons Row) */}
+        <div className="absolute bottom-4 left-0 right-0 px-5 sm:px-8 z-20">
+          {/* Category Pill */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-3 py-1 rounded-full bg-red-600/90 backdrop-blur-md text-[10px] sm:text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5 shadow-lg">
+              <Flame className="w-3.5 h-3.5 fill-current" />
+              Chart Resmi Indonesia
+            </span>
+            <span className="px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[10px] sm:text-xs font-medium text-white/80 flex items-center gap-1">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+              Diperbarui Mingguan
+            </span>
+          </div>
+
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-2 drop-shadow-md">
+            Top 50 Indonesia
+          </h1>
+          <p className="text-xs sm:text-sm text-white/70 max-w-xl mb-4 drop-shadow">
+            Kumpulan lagu paling populer, viral di radio dan media streaming di seluruh Nusantara minggu ini.
+          </p>
+
+          <div className="flex items-center gap-3">
+            {/* Play All Button */}
+            <button
+              onClick={handlePlayAll}
+              className="px-6 py-2.5 rounded-full bg-white text-black font-bold text-xs sm:text-sm flex items-center gap-2 hover:bg-white/90 active:scale-95 transition-all shadow-xl cursor-pointer"
+            >
+              <Play className="w-4 h-4 fill-current" />
+              Putar Semua
+            </button>
+
+            {/* Shuffle Button */}
+            <button
+              onClick={handleShuffle}
+              className="px-5 py-2.5 rounded-full bg-white/20 hover:bg-white/30 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 backdrop-blur-md border border-white/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <Shuffle className="w-4 h-4" />
+              Acak
+            </button>
+
+            {/* Round Red Play/Pause Button */}
+            <button
+              onClick={() => {
+                if (isTopPlaying) {
+                  togglePlay();
+                } else {
+                  handlePlayAll();
+                }
+              }}
+              className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl ml-auto active:scale-95 transition-all cursor-pointer"
+              title={isTopPlaying ? 'Jeda' : 'Putar Tangga Lagu'}
+            >
+              {isTopPlaying ? (
+                <Pause className="w-5 h-5 fill-current" />
+              ) : (
+                <Play className="w-5 h-5 fill-current ml-0.5" />
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="px-4 pt-4 max-w-2xl mx-auto">
-        {/* Hero Card with iPhone-clean 40px radius */}
-        <div className="relative rounded-[40px] overflow-hidden bg-gradient-to-b from-neutral-800 to-neutral-900 border border-white/10 p-6 shadow-2xl mb-6 flex flex-col sm:flex-row items-center gap-6">
-          <div className="relative w-36 h-36 sm:w-44 sm:h-44 rounded-[32px] overflow-hidden shrink-0 shadow-2xl bg-neutral-950 border border-white/10">
-            <img
-              src={firstCover}
-              alt="Top 50 Indonesia"
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
-              <Flame className="w-3 h-3 text-red-500 fill-current" />
-              Chart
-            </div>
+      <div className="px-4 sm:px-6 pt-6 max-w-3xl mx-auto space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-white/50">
+              Daftar Tangga Lagu
+            </span>
           </div>
-
-          <div className="text-center sm:text-left flex-1">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white mb-1">
-              Top 50 Indonesia
-            </h1>
-            <p className="text-xs sm:text-sm text-white/60 mb-4">
-              Daftar lagu paling populer dan sering didengarkan di Indonesia minggu ini.
-            </p>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-center sm:justify-start gap-3">
-              <button
-                onClick={handlePlayAll}
-                className="px-6 py-2.5 rounded-full bg-white text-black font-bold text-xs sm:text-sm flex items-center gap-2 hover:scale-105 active:scale-95 transition-all shadow-lg cursor-pointer"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                Dengarkan
-              </button>
-
-              <button
-                onClick={handleShuffle}
-                className="px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer border border-white/10"
-              >
-                <Shuffle className="w-4 h-4" />
-                Acak
-              </button>
-            </div>
-          </div>
+          <span className="text-xs text-white/40">{topSongs.length} Lagu</span>
         </div>
 
         {/* Songs List */}
@@ -158,6 +227,7 @@ export const TopIndonesiaView: React.FC = () => {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-white/50 space-y-3">
               <Loader2 className="w-8 h-8 animate-spin text-white/80" />
+              <span className="text-xs text-white/40">Memuat tangga lagu...</span>
             </div>
           ) : topSongs.length === 0 ? (
             <div className="text-center py-16 text-white/50 text-sm">
@@ -172,8 +242,8 @@ export const TopIndonesiaView: React.FC = () => {
 
               return (
                 <div
-                  key={song.id || song.videoId || idx}
-                  className={`group relative flex items-center gap-3 p-2.5 rounded-2xl transition-colors cursor-pointer border border-transparent hover:border-white/5 ${
+                  key={`${song.id || song.videoId || 'top'}_${idx}`}
+                  className={`group relative flex items-center gap-3 p-2.5 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-white/5 ${
                     isCurrent ? 'bg-white/10' : 'hover:bg-white/5'
                   }`}
                   onClick={() => {
@@ -186,8 +256,14 @@ export const TopIndonesiaView: React.FC = () => {
                 >
                   {/* Rank Number */}
                   <span
-                    className={`w-6 text-center text-xs font-bold ${
-                      idx < 3 ? 'text-white' : 'text-white/40'
+                    className={`w-7 text-center text-xs font-extrabold ${
+                      idx === 0
+                        ? 'text-amber-400 text-sm'
+                        : idx === 1
+                        ? 'text-zinc-300'
+                        : idx === 2
+                        ? 'text-amber-600'
+                        : 'text-white/40'
                     }`}
                   >
                     {idx + 1}
@@ -205,6 +281,7 @@ export const TopIndonesiaView: React.FC = () => {
                       alt={song.title}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      referrerPolicy="no-referrer"
                     />
                     {isCurrent && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -221,24 +298,16 @@ export const TopIndonesiaView: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Title & Artist */}
+                  {/* Title & Artist - Note: artist text is plain, clicking plays song */}
                   <div className="min-w-0 flex-1">
                     <h4
                       className={`text-sm font-semibold truncate ${
-                        isCurrent ? 'text-white' : 'text-white/90'
+                        isCurrent ? 'text-emerald-400' : 'text-white'
                       }`}
                     >
                       {song.title}
                     </h4>
-                    <p
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (song.artist) {
-                          openArtist({ name: song.artist });
-                        }
-                      }}
-                      className="text-xs text-white/50 truncate hover:text-white hover:underline cursor-pointer inline-block mt-0.5"
-                    >
+                    <p className="text-xs text-white/50 truncate block mt-0.5">
                       {song.artist}
                     </p>
                   </div>

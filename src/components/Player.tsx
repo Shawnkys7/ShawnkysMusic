@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import {
   Play,
@@ -20,6 +20,28 @@ import {
   X,
 } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
+
+function parseSyncedLyrics(lrcText: string): { time: number; text: string }[] {
+  const lines = lrcText.split('\n');
+  const result: { time: number; text: string }[] = [];
+  const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+
+  for (const line of lines) {
+    const match = line.match(timeRegex);
+    if (match) {
+      const minutes = parseInt(match[1], 10);
+      const seconds = parseInt(match[2], 10);
+      const milliseconds = parseInt(match[3].padEnd(3, '0'), 10);
+      const totalSeconds = minutes * 60 + seconds + milliseconds / 1000;
+      const text = line.replace(timeRegex, '').trim();
+      if (text) {
+        result.push({ time: totalSeconds, text });
+      }
+    }
+  }
+
+  return result.sort((a, b) => a.time - b.time);
+}
 
 export const Player: React.FC = () => {
   const {
@@ -55,6 +77,42 @@ export const Player: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const activeLyricRef = useRef<HTMLDivElement>(null);
+
+  const syncedLines = useMemo(() => {
+    if (!lyricsData?.syncedLyrics) return [];
+    return parseSyncedLyrics(lyricsData.syncedLyrics);
+  }, [lyricsData?.syncedLyrics]);
+
+  const activeLyricsLineIndex = useMemo(() => {
+    if (syncedLines.length > 0) {
+      let idx = -1;
+      for (let i = 0; i < syncedLines.length; i++) {
+        if (currentTime >= syncedLines[i].time - 0.2) {
+          idx = i;
+        } else {
+          break;
+        }
+      }
+      return idx;
+    }
+    // Fallback: if only plain lines are available, estimate based on song progress
+    if (lyricsData?.lines && lyricsData.lines.length > 0 && duration > 0) {
+      const fraction = Math.min(1, Math.max(0, currentTime / duration));
+      return Math.min(lyricsData.lines.length - 1, Math.floor(fraction * lyricsData.lines.length));
+    }
+    return -1;
+  }, [currentTime, duration, syncedLines, lyricsData?.lines]);
+
+  // Auto scroll active lyric in full player lyrics tab
+  useEffect(() => {
+    if (activeTab === 'lyrics' && activeLyricRef.current) {
+      activeLyricRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [activeLyricsLineIndex, activeTab]);
 
   const formatTime = (secs: number) => {
     if (isNaN(secs) || secs < 0) return '0:00';
@@ -413,18 +471,36 @@ export const Player: React.FC = () => {
                 </button>
               </div>
 
-              {/* Timeline Slider */}
+              {/* Timeline Slider with Clean White Trail & Thumb (No Neon) */}
               <div className="mb-5">
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 100}
-                  step="0.1"
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-1.5 bg-white/20 rounded-full appearance-none cursor-pointer accent-white hover:h-2 transition-all"
-                />
-                <div className="flex justify-between text-[11px] text-white/40 mt-1.5 font-medium">
+                <div className="relative w-full h-7 flex items-center group cursor-pointer select-none">
+                  {/* Background Track */}
+                  <div className="absolute left-0 right-0 h-1 bg-white/20 rounded-full overflow-hidden">
+                    {/* White Progress Trail behind the circle */}
+                    <div
+                      className="h-full bg-white rounded-full transition-all duration-75"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+
+                  {/* Moving Round Thumb (Clean White, No Neon Glow) */}
+                  <div
+                    className="absolute w-3.5 h-3.5 bg-white rounded-full -translate-x-1/2 pointer-events-none group-hover:scale-125 transition-transform"
+                    style={{ left: `${progressPercent}%` }}
+                  />
+
+                  {/* Interactive Range Input */}
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 100}
+                    step="0.1"
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                </div>
+                <div className="flex justify-between text-[11px] text-white/40 -mt-0.5 font-medium">
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
@@ -491,21 +567,54 @@ export const Player: React.FC = () => {
           {activeTab === 'lyrics' && (
             <div
               ref={lyricsContainerRef}
-              className="flex-1 overflow-y-auto max-w-md mx-auto w-full py-6 px-4 space-y-4 no-scrollbar"
+              className="flex-1 overflow-y-auto max-w-md mx-auto w-full py-8 px-6 space-y-4 no-scrollbar scroll-smooth"
             >
               {isLoadingLyrics ? (
                 <div className="flex justify-center py-20 text-white/50 text-xs">
                   Memuat lirik...
                 </div>
+              ) : syncedLines.length > 0 ? (
+                /* Synced Lyrics - clean and normal Spotify-style text */
+                syncedLines.map((line, idx) => {
+                  const isActive = idx === activeLyricsLineIndex;
+                  const isPast = idx < activeLyricsLineIndex;
+                  return (
+                    <p
+                      key={idx}
+                      ref={isActive ? activeLyricRef : null}
+                      onClick={() => seekTo(line.time)}
+                      className={`text-lg sm:text-xl font-bold transition-all duration-200 cursor-pointer leading-relaxed ${
+                        isActive
+                          ? 'text-white scale-[1.02] font-extrabold opacity-100'
+                          : isPast
+                          ? 'text-white/60 hover:text-white/80'
+                          : 'text-white/30 hover:text-white/60'
+                      }`}
+                    >
+                      {line.text}
+                    </p>
+                  );
+                })
               ) : lyricsData?.lines && lyricsData.lines.length > 0 ? (
-                lyricsData.lines.map((line, idx) => (
-                  <p
-                    key={idx}
-                    className="text-base sm:text-lg font-bold text-white/80 hover:text-white transition-colors leading-relaxed"
-                  >
-                    {line}
-                  </p>
-                ))
+                lyricsData.lines.map((line, idx) => {
+                  const isActive = idx === activeLyricsLineIndex;
+                  const isPast = idx < activeLyricsLineIndex;
+                  return (
+                    <p
+                      key={idx}
+                      ref={isActive ? activeLyricRef : null}
+                      className={`text-lg sm:text-xl font-bold transition-all duration-200 leading-relaxed ${
+                        isActive
+                          ? 'text-white scale-[1.02] font-extrabold opacity-100'
+                          : isPast
+                          ? 'text-white/60 hover:text-white/80'
+                          : 'text-white/30 hover:text-white/60'
+                      }`}
+                    >
+                      {line}
+                    </p>
+                  );
+                })
               ) : (
                 <div className="text-center py-24 text-white/40 text-sm">
                   Lirik tidak tersedia untuk lagu ini.

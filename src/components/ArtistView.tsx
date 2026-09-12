@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useMusic } from '../context/MusicContext';
 import { Song } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 
 export const ArtistView: React.FC = () => {
   const {
@@ -37,6 +38,8 @@ export const ArtistView: React.FC = () => {
     addToQueue,
     setTrackToAddToPlaylist,
     openArtist,
+    isArtistSubscribed,
+    toggleSubscribeArtist,
   } = useMusic();
 
   const [artistData, setArtistData] = useState<any>(null);
@@ -47,7 +50,6 @@ export const ArtistView: React.FC = () => {
   const [similarArtists, setSimilarArtists] = useState<any[]>([]);
   const [featuredPlaylists, setFeaturedPlaylists] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [activeMenuSongId, setActiveMenuSongId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isBioExpanded, setIsBioExpanded] = useState<boolean>(false);
@@ -58,38 +60,32 @@ export const ArtistView: React.FC = () => {
   const [isLoadingAlbum, setIsLoadingAlbum] = useState<boolean>(false);
 
   const artistName = selectedArtist?.name || 'Artis';
+  const isSubscribed = isArtistSubscribed(artistName) || (selectedArtist?.artistId ? isArtistSubscribed(selectedArtist.artistId) : false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2000);
   };
 
-  // Check subscription status in localStorage
-  useEffect(() => {
-    try {
-      const subs = JSON.parse(localStorage.getItem('subscribed_artists') || '[]');
-      setIsSubscribed(subs.includes(artistName));
-    } catch {
-      setIsSubscribed(false);
-    }
-  }, [artistName]);
-
   const toggleSubscribe = () => {
-    try {
-      const subs: string[] = JSON.parse(localStorage.getItem('subscribed_artists') || '[]');
-      let updated: string[];
-      if (subs.includes(artistName)) {
-        updated = subs.filter((a) => a !== artistName);
-        setIsSubscribed(false);
-        showToast(`Berhenti berlangganan ${artistName}`);
-      } else {
-        updated = [...subs, artistName];
-        setIsSubscribed(true);
-        showToast(`Berlangganan ${artistName}`);
-      }
-      localStorage.setItem('subscribed_artists', JSON.stringify(updated));
-    } catch {
-      setIsSubscribed(!isSubscribed);
+    const artistImg =
+      artistData?.avatar ||
+      artistData?.thumbnails?.[0]?.url ||
+      selectedArtist?.image ||
+      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80';
+
+    toggleSubscribeArtist({
+      name: artistName,
+      artistId: selectedArtist?.artistId || artistData?.id,
+      image: artistImg,
+      subscribers: artistData?.subscribers || selectedArtist?.subscribers || 'Artis',
+      description: artistData?.description,
+    });
+
+    if (isSubscribed) {
+      showToast(`Berhenti berlangganan ${artistName}`);
+    } else {
+      showToast(`Berlangganan ${artistName}`);
     }
   };
 
@@ -242,91 +238,157 @@ export const ArtistView: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Immersive Hero Banner matching Screenshot 7 */}
-      <div className="relative w-full h-[370px] sm:h-[430px] overflow-hidden bg-neutral-900">
-        <img
-          src={artistAvatar}
-          alt={artistName}
-          className="w-full h-full object-cover object-top"
-          referrerPolicy="no-referrer"
-        />
-        {/* Soft Dark Vignette & Bottom Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#111113] via-[#111113]/55 to-black/40" />
+      {/* Loading Skeleton & Render Animation */}
+      {isLoading && !artistData ? (
+        <div className="animate-in fade-in duration-300">
+          {/* Skeleton Hero Banner */}
+          <div className="relative w-full h-[370px] sm:h-[430px] overflow-hidden bg-neutral-900/80 animate-pulse">
+            <div className="absolute inset-0 bg-gradient-to-t from-[#111113] via-neutral-900/60 to-black/40" />
 
-        {/* Floating Top Navigation */}
-        <div className="absolute top-4 left-0 right-0 px-4 sm:px-6 flex items-center justify-between z-20">
-          <button
-            onClick={() => setCurrentView('home')}
-            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-lg active:scale-95"
-            title="Kembali"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+            {/* Floating Top Back */}
+            <div className="absolute top-4 left-0 right-0 px-4 sm:px-6 flex items-center justify-between z-20">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md border border-white/15 flex items-center justify-center text-white cursor-pointer"
+                title="Kembali"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            </div>
 
-          <button
-            onClick={handleShare}
-            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-lg active:scale-95"
-            title="Bagikan Artis"
-          >
-            <Share2 className="w-4 h-4" />
-          </button>
-        </div>
+            {/* Shimmering Center Spinner & Aura */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="w-20 h-20 rounded-full bg-white/10 animate-ping opacity-30" />
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-xs text-white/70">
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Memuat profil {artistName}...</span>
+              </div>
+            </div>
 
-        {/* Hero Bottom Info (Artist Name + Action Buttons Row) */}
-        <div className="absolute bottom-4 left-0 right-0 px-5 sm:px-8 z-20">
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 drop-shadow-md truncate">
-            {artistData?.name || artistName}
-          </h1>
+            {/* Skeleton Bottom Info */}
+            <div className="absolute bottom-4 left-0 right-0 px-5 sm:px-8 z-20 space-y-3">
+              <div className="h-9 w-48 bg-white/20 rounded-xl animate-pulse" />
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-28 bg-white/10 rounded-full animate-pulse" />
+                <div className="h-9 w-24 bg-white/10 rounded-full animate-pulse" />
+                <div className="w-12 h-12 rounded-full bg-red-600/50 animate-pulse ml-auto" />
+              </div>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-3">
-            {/* Subscribed / Subscribe Pill Button */}
-            <button
-              onClick={toggleSubscribe}
-              className={`px-5 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-lg active:scale-95 ${
-                isSubscribed
-                  ? 'bg-white text-black hover:bg-white/90'
-                  : 'bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-md'
-              }`}
-            >
-              {isSubscribed ? 'Subscribed' : 'Subscribe'}
-            </button>
+          {/* Skeleton Content Rows */}
+          <div className="px-4 sm:px-6 pt-6 max-w-2xl mx-auto space-y-6">
+            <div className="space-y-2">
+              <div className="h-4 w-28 bg-white/10 rounded" />
+              <div className="h-3 w-full bg-white/5 rounded" />
+              <div className="h-3 w-4/5 bg-white/5 rounded" />
+            </div>
 
-            {/* Radio Button */}
-            <button
-              onClick={() => {
-                if (topSongs.length > 0) {
-                  const shuffled = [...topSongs].sort(() => Math.random() - 0.5);
-                  playSong(shuffled[0], shuffled);
-                  showToast(`Memutar Radio ${artistName}`);
-                }
-              }}
-              className="px-4 sm:px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 backdrop-blur-md active:scale-95 transition-all cursor-pointer"
-            >
-              <Radio className="w-4 h-4" />
-              <span>Radio</span>
-            </button>
-
-            {/* Round Red Play Button */}
-            <button
-              onClick={() => {
-                if (isArtistPlaying) {
-                  togglePlay();
-                } else {
-                  handlePlayAll();
-                }
-              }}
-              className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl ml-auto active:scale-95 transition-all cursor-pointer"
-              title={isArtistPlaying ? 'Jeda' : 'Putar Semua'}
-            >
-              {isArtistPlaying ? (
-                <Pause className="w-5 h-5 fill-current" />
-              ) : (
-                <Play className="w-5 h-5 fill-current ml-0.5" />
-              )}
-            </button>
+            <div className="space-y-3">
+              <div className="h-5 w-32 bg-white/10 rounded" />
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded-2xl bg-white/5 animate-pulse">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-40 bg-white/10 rounded" />
+                    <div className="h-3 w-24 bg-white/5 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        >
+          {/* 1. Immersive Hero Banner matching Screenshot 7 */}
+          <div className="relative w-full h-[370px] sm:h-[430px] overflow-hidden bg-neutral-900">
+            <img
+              src={artistAvatar}
+              alt={artistName}
+              className="w-full h-full object-cover object-top"
+              referrerPolicy="no-referrer"
+            />
+            {/* Soft Dark Vignette & Bottom Gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#111113] via-[#111113]/55 to-black/40" />
+
+            {/* Floating Top Navigation */}
+            <div className="absolute top-4 left-0 right-0 px-4 sm:px-6 flex items-center justify-between z-20">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-lg active:scale-95"
+                title="Kembali"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={handleShare}
+                className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center text-white transition-all cursor-pointer shadow-lg active:scale-95"
+                title="Bagikan Artis"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Hero Bottom Info (Artist Name + Action Buttons Row) */}
+            <div className="absolute bottom-4 left-0 right-0 px-5 sm:px-8 z-20">
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-4 drop-shadow-md truncate">
+                {artistData?.name || artistName}
+              </h1>
+
+              <div className="flex items-center gap-3">
+                {/* Subscribed / Subscribe Pill Button */}
+                <button
+                  onClick={toggleSubscribe}
+                  className={`px-5 sm:px-6 py-2.5 rounded-full font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-lg active:scale-95 ${
+                    isSubscribed
+                      ? 'bg-white text-black hover:bg-white/90'
+                      : 'bg-white/20 hover:bg-white/30 text-white border border-white/20 backdrop-blur-md'
+                  }`}
+                >
+                  {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                </button>
+
+                {/* Radio Button */}
+                <button
+                  onClick={() => {
+                    if (topSongs.length > 0) {
+                      const shuffled = [...topSongs].sort(() => Math.random() - 0.5);
+                      playSong(shuffled[0], shuffled);
+                      showToast(`Memutar Radio ${artistName}`);
+                    }
+                  }}
+                  className="px-4 sm:px-5 py-2.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 backdrop-blur-md active:scale-95 transition-all cursor-pointer"
+                >
+                  <Radio className="w-4 h-4" />
+                  <span>Radio</span>
+                </button>
+
+                {/* Round Red Play Button */}
+                <button
+                  onClick={() => {
+                    if (isArtistPlaying) {
+                      togglePlay();
+                    } else {
+                      handlePlayAll();
+                    }
+                  }}
+                  className="w-12 h-12 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center shadow-2xl ml-auto active:scale-95 transition-all cursor-pointer"
+                  title={isArtistPlaying ? 'Jeda' : 'Putar Semua'}
+                >
+                  {isArtistPlaying ? (
+                    <Pause className="w-5 h-5 fill-current" />
+                  ) : (
+                    <Play className="w-5 h-5 fill-current ml-0.5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
 
       <div className="px-4 sm:px-6 pt-4 max-w-2xl mx-auto space-y-7">
         {/* 2. Section: Tentang (matching Screenshot 7) */}
@@ -697,6 +759,8 @@ export const ArtistView: React.FC = () => {
           </div>
         )}
       </div>
+      </motion.div>
+      )}
 
       {/* Album Tracks Detail Modal */}
       {selectedAlbum && (

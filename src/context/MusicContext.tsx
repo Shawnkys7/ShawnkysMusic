@@ -50,7 +50,7 @@ interface MusicContextType {
   // Liked Songs
   likedSongs: Song[];
   toggleLike: (song: Song) => void;
-  isLiked: (songId: string) => boolean;
+  isLiked: (songOrId: Song | string) => boolean;
 
   // Custom User Playlists
   playlists: Playlist[];
@@ -64,6 +64,9 @@ interface MusicContextType {
   setCurrentView: (view: ViewMode) => void;
   activePlaylistId: string | null;
   setActivePlaylistId: (id: string | null) => void;
+  selectedPlaylistData: Playlist | null;
+  setSelectedPlaylistData: (pl: Playlist | null) => void;
+  openPlaylist: (playlist: Playlist) => void;
   selectedArtist: ArtistInfo | null;
   setSelectedArtist: (artist: ArtistInfo | null) => void;
   openArtist: (artist: ArtistInfo) => void;
@@ -92,16 +95,34 @@ interface MusicContextType {
   setIsHistoryOpen: (open: boolean) => void;
   clearHistory: () => void;
 
+  // Subscribed Artists
+  subscribedArtists: ArtistInfo[];
+  toggleSubscribeArtist: (artist: ArtistInfo) => void;
+  isArtistSubscribed: (artistNameOrId: string) => boolean;
+  unsubscribeArtist: (artistNameOrId: string) => void;
+
   // Add to Playlist modal
   trackToAddToPlaylist: Song | null;
   setTrackToAddToPlaylist: (song: Song | null) => void;
+
+  // Genre & Mood Navigation
+  selectedGenre: string | null;
+  setSelectedGenre: (genre: string | null) => void;
+  openGenre: (genre: string) => void;
+
+  // Downloaded / Offline songs
+  downloadedSongs: Song[];
+  toggleDownloadSong: (song: Song) => void;
+  isDownloaded: (songId: string) => boolean;
 }
 
 const MusicContext = createContext<MusicContextType | undefined>(undefined);
 
 const LIKED_KEY = 'spotify_clone_liked_songs';
+const DOWNLOADED_KEY = 'spotify_clone_downloaded_songs';
 const PLAYLISTS_KEY = 'spotify_clone_user_playlists';
 const RECENT_KEY = 'spotify_clone_recently_played';
+const SUBS_KEY = 'subscribed_artists';
 
 export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Audio element ref and YouTube player ref
@@ -162,6 +183,102 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
+  // Subscribed artists state
+  const [subscribedArtists, setSubscribedArtists] = useState<ArtistInfo[]>(() => {
+    try {
+      const saved = localStorage.getItem(SUBS_KEY);
+      if (!saved) {
+        return [
+          {
+            name: 'Tulus',
+            artistId: 'UCe5j7n2L49g5r4zYk8w1_1Q',
+            image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
+            subscribers: '4.8M',
+          },
+          {
+            name: 'Hindia',
+            artistId: 'UC6y5e7N9_1h8a9x7k2b3c4d',
+            image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=300&auto=format&fit=crop&q=80',
+            subscribers: '2.1M',
+          },
+        ];
+      }
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.map((item) => {
+          if (typeof item === 'string') {
+            return {
+              name: item,
+              image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
+            };
+          }
+          return item;
+        });
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SUBS_KEY, JSON.stringify(subscribedArtists));
+    } catch {}
+  }, [subscribedArtists]);
+
+  const isArtistSubscribed = (artistNameOrId: string): boolean => {
+    if (!artistNameOrId) return false;
+    const target = artistNameOrId.trim().toLowerCase();
+    return subscribedArtists.some(
+      (a) =>
+        a.name.toLowerCase() === target ||
+        (a.artistId && a.artistId.toLowerCase() === target) ||
+        (a.id && a.id.toLowerCase() === target)
+    );
+  };
+
+  const toggleSubscribeArtist = (artist: ArtistInfo) => {
+    if (!artist || !artist.name) return;
+    setSubscribedArtists((prev) => {
+      const exists = prev.some(
+        (a) =>
+          a.name.toLowerCase() === artist.name.toLowerCase() ||
+          (artist.artistId && a.artistId === artist.artistId)
+      );
+      if (exists) {
+        return prev.filter(
+          (a) =>
+            a.name.toLowerCase() !== artist.name.toLowerCase() &&
+            (!artist.artistId || a.artistId !== artist.artistId)
+        );
+      } else {
+        const newEntry: ArtistInfo = {
+          name: artist.name,
+          artistId: artist.artistId,
+          image:
+            artist.image ||
+            'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
+          subscribers: artist.subscribers || 'Artis',
+          description: artist.description,
+        };
+        return [newEntry, ...prev];
+      }
+    });
+  };
+
+  const unsubscribeArtist = (artistNameOrId: string) => {
+    if (!artistNameOrId) return;
+    const target = artistNameOrId.trim().toLowerCase();
+    setSubscribedArtists((prev) =>
+      prev.filter(
+        (a) =>
+          a.name.toLowerCase() !== target &&
+          (!a.artistId || a.artistId.toLowerCase() !== target)
+      )
+    );
+  };
+
   // Recently played
   const [recentlyPlayed, setRecentlyPlayed] = useState<Song[]>(() => {
     try {
@@ -175,6 +292,7 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // View state
   const [currentView, setCurrentView] = useState<ViewMode>('home');
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
+  const [selectedPlaylistData, setSelectedPlaylistData] = useState<Playlist | null>(null);
   const [selectedArtist, setSelectedArtist] = useState<ArtistInfo | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -182,6 +300,12 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSelectedArtist(artist);
     setActivePlaylistId(null);
     setCurrentView('artist');
+  };
+
+  const openPlaylist = (playlist: Playlist) => {
+    setSelectedPlaylistData(playlist);
+    setActivePlaylistId(playlist.id);
+    setCurrentView('playlist');
   };
 
   // Lyrics state
@@ -341,36 +465,85 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentSong) return;
 
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentSong.title || currentSong.name || 'Musik',
-      artist: currentSong.artist || currentSong.artists || 'Artis',
-      album: currentSong.album || 'Aura Musik',
-      artwork: [
-        { src: currentSong.image || '', sizes: '512x512', type: 'image/jpeg' },
-        { src: currentSong.image || '', sizes: '192x192', type: 'image/jpeg' },
-      ],
-    });
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title || currentSong.name || 'Musik',
+        artist: currentSong.artist || currentSong.artists || 'Artis',
+        album: currentSong.album || 'Aura Musik',
+        artwork: [
+          { src: currentSong.image || '', sizes: '512x512', type: 'image/jpeg' },
+          { src: currentSong.image || '', sizes: '192x192', type: 'image/jpeg' },
+        ],
+      });
 
-    navigator.mediaSession.setActionHandler('play', () => resumeSong());
-    navigator.mediaSession.setActionHandler('pause', () => pauseSong());
-    navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
-    navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime !== undefined) {
-        seekTo(details.seekTime);
-      }
-    });
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+      navigator.mediaSession.setActionHandler('play', () => resumeSong());
+      navigator.mediaSession.setActionHandler('pause', () => pauseSong());
+      navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
+      navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime !== undefined) {
+          seekTo(details.seekTime);
+        }
+      });
+    } catch {
+      // ignore mediaSession errors
+    }
 
     return () => {
       if ('mediaSession' in navigator) {
-        navigator.mediaSession.setActionHandler('play', null);
-        navigator.mediaSession.setActionHandler('pause', null);
-        navigator.mediaSession.setActionHandler('previoustrack', null);
-        navigator.mediaSession.setActionHandler('nexttrack', null);
-        navigator.mediaSession.setActionHandler('seekto', null);
+        try {
+          navigator.mediaSession.setActionHandler('play', null);
+          navigator.mediaSession.setActionHandler('pause', null);
+          navigator.mediaSession.setActionHandler('previoustrack', null);
+          navigator.mediaSession.setActionHandler('nexttrack', null);
+          navigator.mediaSession.setActionHandler('seekto', null);
+        } catch {
+          // ignore
+        }
       }
     };
-  }, [currentSong]);
+  }, [currentSong, isPlaying]);
+
+  // Keep MediaSession position state in sync
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession) || !currentSong || !duration) return;
+    try {
+      if (duration > 0 && currentTime >= 0 && currentTime <= duration) {
+        navigator.mediaSession.setPositionState({
+          duration: Math.max(1, duration),
+          playbackRate: 1,
+          position: Math.min(currentTime, duration),
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, [currentTime, duration, currentSong]);
+
+  // Background Audio Keeper for mobile / lockscreen YouTube playback
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    // Silent 1-second WAV data URI to keep browser audio thread alive in background on mobile
+    const silentAudio = new Audio(
+      'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'
+    );
+    silentAudio.loop = true;
+    silentAudio.volume = 0.01;
+
+    const startSilent = () => {
+      silentAudio.play().catch(() => {});
+    };
+
+    startSilent();
+
+    return () => {
+      silentAudio.pause();
+      silentAudio.src = '';
+    };
+  }, [isPlaying]);
 
   // Fetch Up Next whenever currentSong changes with videoId
   useEffect(() => {
@@ -740,19 +913,37 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Liked songs
   const toggleLike = (song: Song) => {
+    if (!song) return;
+    const songKey = song.videoId || song.id;
     setLikedSongs((prev) => {
-      const sId = song.videoId || song.id;
-      const exists = prev.some((s) => (s.videoId && s.videoId === sId) || s.id === sId);
+      const exists = prev.some((s) => {
+        const k = s.videoId || s.id;
+        return (k && songKey && k === songKey) || (s.title === song.title && s.artist === song.artist);
+      });
+
       if (exists) {
-        return prev.filter((s) => (s.videoId && s.videoId !== sId) && s.id !== sId);
+        return prev.filter((s) => {
+          const k = s.videoId || s.id;
+          if (k && songKey && k === songKey) return false;
+          if (s.title === song.title && s.artist === song.artist) return false;
+          return true;
+        });
       } else {
         return [song, ...prev];
       }
     });
   };
 
-  const isLiked = (songId: string) => {
-    return likedSongs.some((s) => s.id === songId || (s.videoId && s.videoId === songId));
+  const isLiked = (songOrId: Song | string) => {
+    if (!songOrId) return false;
+    if (typeof songOrId === 'string') {
+      return likedSongs.some((s) => s.id === songOrId || s.videoId === songOrId);
+    }
+    const songKey = songOrId.videoId || songOrId.id;
+    return likedSongs.some((s) => {
+      const k = s.videoId || s.id;
+      return (k && songKey && k === songKey) || (s.title === songOrId.title && s.artist === songOrId.artist);
+    });
   };
 
   // Clear history
@@ -808,6 +999,48 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Genre & Mood Navigation
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+
+  const openGenre = (genre: string) => {
+    setSelectedGenre(genre);
+    setActivePlaylistId(null);
+    setSelectedArtist(null);
+    setCurrentView('genre');
+  };
+
+  // Downloaded / Cached Songs
+  const [downloadedSongs, setDownloadedSongs] = useState<Song[]>(() => {
+    try {
+      const saved = localStorage.getItem(DOWNLOADED_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DOWNLOADED_KEY, JSON.stringify(downloadedSongs));
+    } catch {}
+  }, [downloadedSongs]);
+
+  const toggleDownloadSong = (song: Song) => {
+    setDownloadedSongs((prev) => {
+      const sId = song.videoId || song.id;
+      const exists = prev.some((s) => (s.videoId && s.videoId === sId) || s.id === sId);
+      if (exists) {
+        return prev.filter((s) => (s.videoId && s.videoId !== sId) && s.id !== sId);
+      } else {
+        return [song, ...prev];
+      }
+    });
+  };
+
+  const isDownloaded = (songId: string) => {
+    return downloadedSongs.some((s) => s.id === songId || (s.videoId && s.videoId === songId));
+  };
+
   return (
     <MusicContext.Provider
       value={{
@@ -857,6 +1090,9 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCurrentView,
         activePlaylistId,
         setActivePlaylistId,
+        selectedPlaylistData,
+        setSelectedPlaylistData,
+        openPlaylist,
         selectedArtist,
         setSelectedArtist,
         openArtist,
@@ -876,8 +1112,18 @@ export const MusicProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isHistoryOpen,
         setIsHistoryOpen,
         clearHistory,
+        subscribedArtists,
+        toggleSubscribeArtist,
+        isArtistSubscribed,
+        unsubscribeArtist,
         trackToAddToPlaylist,
         setTrackToAddToPlaylist,
+        selectedGenre,
+        setSelectedGenre,
+        openGenre,
+        downloadedSongs,
+        toggleDownloadSong,
+        isDownloaded,
       }}
     >
       {children}

@@ -103,7 +103,7 @@ export const LyricsModal: React.FC = () => {
       <div className="flex-1 overflow-y-auto py-8 sm:py-12 max-w-3xl mx-auto w-full scroll-smooth">
         {isLoadingLyrics ? (
           <div className="h-full flex flex-col items-center justify-center space-y-4 text-zinc-400">
-            <Loader2 className="w-10 h-10 text-[#1ED760] animate-spin" />
+            <Loader2 className="w-10 h-10 text-white/70 animate-spin" />
             <p className="text-base font-semibold">Mengambil lirik lagu...</p>
           </div>
         ) : lyricsData?.instrumental ? (
@@ -113,23 +113,14 @@ export const LyricsModal: React.FC = () => {
             <p className="text-sm text-zinc-400">Trek ini tidak memiliki lirik vokal.</p>
           </div>
         ) : syncedLines.length > 0 ? (
-          /* Synced Lyrics with interactive time jumping */
-          <div className="space-y-6 sm:space-y-8 text-center sm:text-left px-4">
+          /* Plain Clean Lyrics View - No automatic white trace tracking */
+          <div className="space-y-4 sm:space-y-6 text-left px-4">
             {syncedLines.map((line, idx) => {
-              const isActive = idx === activeLineIndex;
-              const isPast = idx < activeLineIndex;
               return (
                 <p
                   key={idx}
-                  ref={isActive ? activeLineRef : null}
                   onClick={() => seekTo(line.time)}
-                  className={`text-xl sm:text-3xl lg:text-4xl font-extrabold cursor-pointer transition-all duration-300 leading-snug ${
-                    isActive
-                      ? 'text-white scale-[1.03] origin-left drop-shadow-md'
-                      : isPast
-                      ? 'text-zinc-500 hover:text-zinc-300'
-                      : 'text-zinc-600 hover:text-zinc-400'
-                  }`}
+                  className="text-lg sm:text-2xl lg:text-3xl font-bold text-zinc-200 hover:text-white transition-colors leading-relaxed cursor-pointer"
                 >
                   {line.text}
                 </p>
@@ -139,10 +130,10 @@ export const LyricsModal: React.FC = () => {
         ) : lyricsData?.plainLyrics ? (
           /* Plain Lyrics fallback */
           <div className="space-y-4 text-center sm:text-left px-4">
-            <span className="text-xs uppercase font-bold text-[#1ED760] tracking-wider mb-2 block">
+            <span className="text-xs uppercase font-bold text-white/50 tracking-wider mb-2 block">
               Teks Lirik Lengkap
             </span>
-            <div className="text-lg sm:text-2xl font-bold text-zinc-300 whitespace-pre-line leading-relaxed">
+            <div className="text-lg sm:text-2xl font-bold text-zinc-200 whitespace-pre-line leading-relaxed">
               {lyricsData.plainLyrics}
             </div>
           </div>
